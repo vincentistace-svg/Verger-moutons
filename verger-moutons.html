@@ -6,13 +6,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Moutons">
-<meta name="theme-color" content="#3F6B3A"> 
+<meta name="theme-color" content="#3F6B3A">
 <title>Verger des moutons — suivi des arbres</title>
 <style>
   :root{
     --paper:#FBF9F4; --paper2:#F3EFE6; --ink:#2A2620; --ink2:#6B6457;
     --line:#E3DCCD; --leaf:#3F6B3A;
-    --pommier:#C24A3A; --poirier:#B08A2E; --prunier:#7A5A9E; --cerisier:#A11D42; --preciser:#A8A090;
+    --pommier:#C24A3A; --poirier:#7B863F; --prunier:#7A5A9E; --cerisier:#A11D42; --preciser:#A8A090;
     --watch:#D98A00; --replace:#8A6FB0; --dead:#8E8678;
     --shadow:0 8px 30px rgba(42,38,32,.16);
   }
@@ -60,6 +60,18 @@
   .rowhead:first-child{margin-top:0}
   .rowhead .n{font:600 12px system-ui;color:var(--ink2)}
   .list{display:flex;flex-direction:column;gap:8px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;margin-top:6px}
+  .col{display:flex;flex-direction:column;gap:22px;align-items:center}
+  .colhead{font-family:Georgia,serif;font-size:14px;font-weight:600;color:var(--ink);text-align:center;padding:0 0 6px}
+  .colhead .n{font:600 11px system-ui;color:var(--ink2)}
+  .tile{width:100%;max-width:132px;aspect-ratio:1/1.06;border-radius:14px;color:#fff;padding:9px 10px;display:flex;flex-direction:column;cursor:pointer;overflow:hidden;box-shadow:0 2px 6px rgba(42,38,32,.15)}
+  .tile:active{transform:translateY(1px)}
+  .tile.dim{opacity:.4}
+  .tile .top{display:flex;align-items:center;gap:6px;min-height:16px}
+  .tile .tcode{font:700 10px system-ui;letter-spacing:.4px;background:rgba(255,255,255,.22);border-radius:5px;padding:1px 6px}
+  .tile .trgf{font:700 8.5px system-ui;background:rgba(255,255,255,.92);color:#4a3d17;border-radius:4px;padding:1px 4px;margin-left:auto}
+  .tile .tname{font-family:Georgia,serif;font-size:13px;line-height:1.13;font-weight:600;flex:1 1 auto;display:flex;align-items:center;margin-top:6px}
+  .tile .tsub{font:600 9.5px system-ui;opacity:.9;letter-spacing:.2px}
   .card{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-left:6px solid var(--line);border-radius:13px;padding:11px 13px;cursor:pointer}
   .card:active{transform:translateY(1px)}
   .card .ref{font:700 12px system-ui;color:#fff;background:var(--ink2);border-radius:7px;padding:4px 7px;min-width:40px;text-align:center}
@@ -223,6 +235,8 @@ const MOIS={"janvier":1,"février":2,"fevrier":2,"mars":3,"avril":4,"mai":5,"jui
 const RANGS=["A","B"];
 const ESPECES_BASE=["Pommier","Poirier","Prunier","Cerisier","À préciser"];
 const ESP_COLOR={"Pommier":"var(--pommier)","Poirier":"var(--poirier)","Prunier":"var(--prunier)","Cerisier":"var(--cerisier)","À préciser":"var(--preciser)"};
+const ESP_HEX={"Pommier":"#C24A3A","Poirier":"#7B863F","Prunier":"#7A5A9E","Cerisier":"#A11D42","À préciser":"#A8A090"};
+const STATUT_HEX={"Vivant":"#3F6B3A","À surveiller":"#D98A00","À remplacer":"#8A6FB0","Remplacé":"#8E8678","Mort":"#8E8678"};
 const STATUTS=["Vivant","À surveiller","À remplacer","Remplacé","Mort"];
 const STATUT_COLOR={"Vivant":"--leaf","À surveiller":"--watch","À remplacer":"--replace","Remplacé":"--dead","Mort":"--dead"};
 const EVENT_TYPES=["Plantation","Remplacement","Maladie / Chancre","Taille","Taille sévère","Blessure","Bris de branche","Traitement","Floraison","Récolte","Greffe","Observation"];
@@ -345,7 +359,7 @@ function accent(t){
   if(t.statut==="Mort")return "var(--dead)";
   return "var(--line)";
 }
-function render(){curCampMap=campMap();renderFilter();renderLegend();renderStats();renderList();renderAlerts();}
+function render(){curCampMap=campMap();document.getElementById("filter").innerHTML="";renderLegend();renderStats();renderList();renderAlerts();}
 function renderStats(){
   const t=Object.values(state.trees);
   document.getElementById("stats").innerHTML=
@@ -382,19 +396,37 @@ function card(t){
     +"<div class='meta'>"+esc(t.espece)+(t.anneePlantation?" · "+esc(t.anneePlantation):"")+(t.statut!=="Vivant"?" · "+t.statut:"")+"</div></div>"
     +rec+"<div class='sdot' style='background:"+sc+"'></div></div>";
 }
+function tileColor(t){
+  const repl=(mode==="statut"||mode==="alertes")&&t.statut==="Remplacé";
+  if(mode==="espece")return ESP_HEX[t.espece]||"#A8A090";
+  if(mode==="campagne")return curCampMap[(t.anneePlantation||"").trim()]||"#A8A090";
+  if(mode==="statut")return repl?"#3F6B3A":(STATUT_HEX[t.statut]||"#3F6B3A");
+  if(!repl){
+    if(t.statut==="À surveiller")return "#D98A00";
+    if(t.statut==="À remplacer")return "#8A6FB0";
+    if(t.statut==="Mort")return "#8E8678";
+  }
+  return "#7FA277";
+}
 function renderList(){
   const box=document.getElementById("list");
-  let trees=Object.values(state.trees);
-  if(filterEsp)trees=trees.filter(t=>t.espece===filterEsp);
-  trees.sort((a,b)=>a.rang===b.rang?a.col-b.col:a.rang.localeCompare(b.rang));
-  if(!trees.length){box.innerHTML="<p class='muted'>Aucun arbre pour ce filtre.</p>";return;}
-  let h="",cur=null;
-  trees.forEach(t=>{
-    if(t.rang!==cur){cur=t.rang;const n=trees.filter(x=>x.rang===cur).length;h+="<div class='rowhead'>Rangée "+cur+" <span class='n'>· "+n+" arbres</span></div>";}
-    h+=card(t);
+  let h="<div class='cols'>";
+  RANGS.forEach(r=>{
+    const trees=Object.values(state.trees).filter(t=>t.rang===r).sort((a,b)=>a.col-b.col);
+    h+="<div class='col'><div class='colhead'>Rangée "+r+" <span class='n'>· "+trees.length+"</span></div>";
+    trees.forEach(t=>{
+      const dim=(mode==="alertes"&&(t.statut==="Vivant"||t.statut==="Remplacé"))?" dim":"";
+      h+="<div class='tile"+dim+"' data-id='"+t.id+"' style='background:"+tileColor(t)+"'>"
+        +"<div class='top'><span class='tcode'>"+t.id+"</span>"+(t.rgf?"<span class='trgf'>RGF</span>":"")+"</div>"
+        +"<div class='tname'>"+esc(t.variete)+"</div>"
+        +(t.fenetre?"<div class='tsub'>récolte "+esc(t.fenetre)+"</div>":"")
+        +"</div>";
+    });
+    h+="</div>";
   });
+  h+="</div>";
   box.innerHTML=h;
-  box.querySelectorAll(".card[data-id]").forEach(el=>el.onclick=()=>openSheet(el.dataset.id));
+  box.querySelectorAll(".tile[data-id]").forEach(el=>el.onclick=()=>openSheet(el.dataset.id));
 }
 function renderAlerts(){
   const box=document.getElementById("alertChips");
@@ -495,7 +527,7 @@ function addTree(){
 /* ===================== PDF ===================== */
 function exportPDF(){
   const rows=Object.values(state.trees).sort((a,b)=>a.rang===b.rang?a.col-b.col:a.rang.localeCompare(b.rang));
-  const espDot={"Pommier":"#C24A3A","Poirier":"#B08A2E","Prunier":"#7A5A9E","Cerisier":"#A11D42","À préciser":"#A8A090"};
+  const espDot={"Pommier":"#C24A3A","Poirier":"#7B863F","Prunier":"#7A5A9E","Cerisier":"#A11D42","À préciser":"#A8A090"};
   const tr=rows.map(t=>"<tr><td class='r'>"+t.id+"</td><td><span class='d' style='background:"+(espDot[t.espece]||"#aaa")+"'></span>"+esc(t.espece)+"</td><td>"+esc(t.variete)+(t.rgf?" <b class='rgf'>RGF</b>":"")+"</td><td class='c'>"+esc(t.fenetre||"—")+"</td><td class='c'>"+esc(t.anneePlantation||"—")+"</td><td>"+esc(t.statut)+"</td></tr>").join("");
   const d=new Date().toLocaleDateString("fr-BE");
   const html="<!DOCTYPE html><html lang='fr'><head><meta charset='utf-8'><title>Verger des moutons</title><style>"
